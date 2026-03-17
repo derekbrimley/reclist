@@ -407,11 +407,11 @@ function AppContent() {
         hasRecommendations={state.recommendations.length > 0}
       />
 
-      <main className="max-w-lg mx-auto px-4 py-4">
+      <main className="max-w-5xl mx-auto px-4 py-4">
         {state.recommendations.length === 0 ? (
           <EmptyState onAddClick={() => setShowAddModal(true)} />
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {state.recommendations.map((rec) => (
               <RecommendationCard
                 key={rec.id}

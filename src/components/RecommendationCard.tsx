@@ -46,8 +46,8 @@ export function RecommendationCard({
   const typeLabel = getTypeLabel();
 
   return (
-    <div className="bg-white dark:bg-zinc-800 rounded-xl p-4 shadow-sm">
-      <div className="flex gap-3">
+    <div className="bg-white dark:bg-zinc-800 rounded-xl p-4 shadow-sm flex flex-col">
+      <div className="flex gap-3 flex-1">
         {/* Artwork or placeholder */}
         <div className="flex-shrink-0">
           {recommendation.artworkUrl ? (
