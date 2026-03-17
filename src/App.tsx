@@ -11,6 +11,7 @@ import {
   SettingsModal,
   SearchModal,
   ListeningGuideModal,
+  RandomPicksModal,
 } from './components';
 import type { SearchResult, Playlist } from './types/index';
 import { parseUrl } from './utils/urlParser';
@@ -46,6 +47,8 @@ function AppContent() {
   const [guideLoading, setGuideLoading] = useState(false);
   const [guideError, setGuideError] = useState<string | null>(null);
   const [guideRecName, setGuideRecName] = useState<string | undefined>(undefined);
+  const [showRandomModal, setShowRandomModal] = useState(false);
+  const [randomPickIds, setRandomPickIds] = useState<string[]>([]);
 
   // Handle OAuth callback
   useEffect(() => {
@@ -334,6 +337,14 @@ function AppContent() {
     dispatch({ type: 'REMOVE_RECOMMENDATION', payload: id });
   };
 
+  const handleRandom = () => {
+    const shuffled = [...state.recommendations].sort(() => Math.random() - 0.5);
+    setRandomPickIds(shuffled.slice(0, 3).map((r) => r.id));
+    setShowRandomModal(true);
+  };
+
+  const randomPicks = state.recommendations.filter((r) => randomPickIds.includes(r.id));
+
   const handleResolve = async (rec: (typeof state.recommendations)[0]) => {
     // If this note has an external URL, open it directly
     if (rec.externalUrl) {
@@ -389,7 +400,12 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <Header onAddClick={() => setShowAddModal(true)} onSettingsClick={() => setShowSettings(true)} />
+      <Header
+        onAddClick={() => setShowAddModal(true)}
+        onSettingsClick={() => setShowSettings(true)}
+        onRandomClick={handleRandom}
+        hasRecommendations={state.recommendations.length > 0}
+      />
 
       <main className="max-w-lg mx-auto px-4 py-4">
         {state.recommendations.length === 0 ? (
@@ -473,6 +489,18 @@ function AppContent() {
         isLoading={guideLoading}
         error={guideError}
         recommendationName={guideRecName}
+      />
+
+      <RandomPicksModal
+        isOpen={showRandomModal}
+        onClose={() => setShowRandomModal(false)}
+        picks={randomPicks}
+        onReshuffle={handleRandom}
+        onPlay={handlePlay}
+        onKeep={handleKeep}
+        onDismiss={handleDismiss}
+        onResolve={handleResolve}
+        onGuide={handleGuide}
       />
     </div>
   );

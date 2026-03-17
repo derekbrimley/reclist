@@ -7,3 +7,4 @@ export { PlaylistSelector } from './PlaylistSelector';
 export { SettingsModal } from './SettingsModal';
 export { SearchModal } from './SearchModal';
 export { ListeningGuideModal } from './ListeningGuideModal';
+export { RandomPicksModal } from './RandomPicksModal';
