@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { useSupabaseAuth } from './hooks/useSupabaseAuth';
 import { useSpotify } from './hooks/useSpotify';
@@ -14,7 +14,9 @@ import {
   SearchModal,
   ListeningGuideModal,
   RandomPicksModal,
+  SortControl,
 } from './components';
+import type { SortOption } from './components';
 import type { SearchResult, Playlist, Recommendation } from './types/index';
 import { parseUrl } from './utils/urlParser';
 import { fetchYouTubeMetadata } from './utils/youtube';
@@ -60,6 +62,28 @@ function AppContent() {
   const [guideRecName, setGuideRecName] = useState<string | undefined>(undefined);
   const [showRandomModal, setShowRandomModal] = useState(false);
   const [randomPickIds, setRandomPickIds] = useState<string[]>([]);
+  const [sortOption, setSortOption] = useState<SortOption>('recent');
+
+  const sortedRecs = useMemo(() => {
+    const recs = [...state.recommendations];
+    switch (sortOption) {
+      case 'recent':
+        return recs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      case 'opened':
+        return recs.sort((a, b) => {
+          if (!a.lastOpenedAt && !b.lastOpenedAt) return 0;
+          if (!a.lastOpenedAt) return 1;
+          if (!b.lastOpenedAt) return -1;
+          return new Date(b.lastOpenedAt).getTime() - new Date(a.lastOpenedAt).getTime();
+        });
+      case 'alpha':
+        return recs.sort((a, b) => {
+          const nameA = (a.name || a.noteText || '').toLowerCase();
+          const nameB = (b.name || b.noteText || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+    }
+  }, [state.recommendations, sortOption]);
 
   // Set auth and user state in AppContext
   useEffect(() => {
@@ -223,6 +247,8 @@ function AppContent() {
   };
 
   const handlePlay = (rec: (typeof state.recommendations)[0]) => {
+    updateAndSync(rec.id, { lastOpenedAt: new Date().toISOString() });
+
     if (rec.externalUrl && rec.externalSource !== 'spotify') {
       window.open(rec.externalUrl, '_blank');
       return;
@@ -341,6 +367,7 @@ function AppContent() {
 
   const handleResolve = async (rec: (typeof state.recommendations)[0]) => {
     if (rec.externalUrl) {
+      updateAndSync(rec.id, { lastOpenedAt: new Date().toISOString() });
       window.open(rec.externalUrl, '_blank');
     } else {
       const searchQuery = rec.noteText || '';
@@ -396,8 +423,10 @@ function AppContent() {
         {state.recommendations.length === 0 ? (
           <EmptyState onAddClick={() => setShowAddModal(true)} />
         ) : (
+          <>
+          <SortControl value={sortOption} onChange={setSortOption} />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {state.recommendations.map((rec) => (
+            {sortedRecs.map((rec) => (
               <RecommendationCard
                 key={rec.id}
                 recommendation={rec}
@@ -409,6 +438,7 @@ function AppContent() {
               />
             ))}
           </div>
+          </>
         )}
       </main>
 

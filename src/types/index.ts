@@ -12,6 +12,7 @@ export interface Recommendation {
   externalSource?: 'spotify' | 'apple' | 'youtube' | 'bandcamp' | 'unknown';
   noteText?: string;
   createdAt: string;
+  lastOpenedAt?: string;
   listeningGuide?: string;
 }
 

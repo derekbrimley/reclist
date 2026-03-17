@@ -18,6 +18,7 @@ function rowToRecommendation(row: Record<string, unknown>): Recommendation {
     externalSource: (row.external_source as Recommendation['externalSource']) || undefined,
     noteText: (row.note_text as string) || undefined,
     listeningGuide: (row.listening_guide as string) || undefined,
+    lastOpenedAt: (row.last_opened_at as string) || undefined,
     createdAt: row.created_at as string,
   };
 }
@@ -37,6 +38,7 @@ function recommendationToRow(rec: Recommendation, userId: string): Record<string
     external_source: rec.externalSource || null,
     note_text: rec.noteText || null,
     listening_guide: rec.listeningGuide || null,
+    last_opened_at: rec.lastOpenedAt || null,
     created_at: rec.createdAt,
   };
 }

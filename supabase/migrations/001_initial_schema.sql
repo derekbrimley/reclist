@@ -12,6 +12,7 @@ CREATE TABLE recommendations (
   external_source TEXT,
   note_text TEXT,
   listening_guide TEXT,
+  last_opened_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
