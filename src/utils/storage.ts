@@ -4,6 +4,8 @@ const STORAGE_KEY = 'reclist_state';
 
 const DEFAULT_STATE: AppState = {
   isAuthorized: false,
+  isHydrated: false,
+  userId: null,
   keeperPlaylistId: null,
   keeperPlaylistName: null,
   artistKeepCount: 10,
