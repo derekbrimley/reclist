@@ -38,7 +38,15 @@ export interface SearchResult {
   spotifyUrl: string;
 }
 
-export type AddMode = 'url' | 'search' | 'note';
+export type AddMode = 'url' | 'search' | 'note' | 'import';
+
+export interface ExtractedMention {
+  name: string;
+  artistName: string;
+  type: 'song' | 'album' | 'artist';
+  spotifyMatch?: SearchResult;
+  selected: boolean;
+}
 
 export interface UrlParseResult {
   source: 'spotify' | 'apple' | 'youtube' | 'bandcamp' | 'unknown';
