@@ -17,6 +17,8 @@ export interface Recommendation {
 
 export interface AppState {
   isAuthorized: boolean;
+  isHydrated: boolean;
+  userId: string | null;
   keeperPlaylistId: string | null;
   keeperPlaylistName: string | null;
   artistKeepCount: number;
