@@ -8,3 +8,5 @@ export { SettingsModal } from './SettingsModal';
 export { SearchModal } from './SearchModal';
 export { ListeningGuideModal } from './ListeningGuideModal';
 export { RandomPicksModal } from './RandomPicksModal';
+export { SortControl } from './SortControl';
+export type { SortOption } from './SortControl';
