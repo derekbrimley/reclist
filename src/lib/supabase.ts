@@ -11,5 +11,6 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   auth: {
     flowType: 'implicit',
     detectSessionInUrl: true,
+    lock: (_name, _acquireTimeout, fn) => fn(),
   },
 });
