@@ -95,35 +95,12 @@ export function useSupabaseAuth(): UseSupabaseAuthReturn {
     return null;
   }, [refreshSpotifyToken]);
 
-  // Initialize: get existing session and listen for auth changes
+  // Initialize via onAuthStateChange only (avoids getSession lock contention).
+  // onAuthStateChange fires INITIAL_SESSION immediately with the current session,
+  // so a separate getSession() call is unnecessary and can deadlock.
   useEffect(() => {
     let mounted = true;
-
-    const init = async () => {
-      try {
-        const { data: { session: existingSession } } = await supabase.auth.getSession();
-
-        if (!mounted) return;
-
-        if (existingSession?.user) {
-          setSession(existingSession);
-          setUser(existingSession.user);
-
-          // On initial load, provider_token is null (only available at sign-in time).
-          // Load from our database instead.
-          const token = await loadSpotifyToken(existingSession.user.id);
-          if (mounted) {
-            setSpotifyAccessToken(token);
-          }
-        }
-      } catch (err) {
-        console.error('Auth initialization failed:', err);
-      } finally {
-        if (mounted) setIsLoading(false);
-      }
-    };
-
-    init();
+    let initialEventReceived = false;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mounted) return;
@@ -131,7 +108,7 @@ export function useSupabaseAuth(): UseSupabaseAuthReturn {
       setSession(newSession);
       setUser(newSession?.user ?? null);
 
-      if (event === 'SIGNED_IN' && newSession?.user) {
+      if (newSession?.user) {
         // Capture provider tokens (only available immediately after OAuth sign-in)
         if (newSession.provider_token) {
           setSpotifyAccessToken(newSession.provider_token);
@@ -141,8 +118,8 @@ export function useSupabaseAuth(): UseSupabaseAuthReturn {
             newSession.provider_refresh_token || '',
             3600 // Spotify tokens last 1 hour
           );
-        } else {
-          // Page refresh or token refresh — load from DB
+        } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          // Load Spotify token from our database
           const token = await loadSpotifyToken(newSession.user.id);
           if (mounted) setSpotifyAccessToken(token);
         }
@@ -150,6 +127,12 @@ export function useSupabaseAuth(): UseSupabaseAuthReturn {
 
       if (event === 'SIGNED_OUT') {
         setSpotifyAccessToken(null);
+      }
+
+      // Mark loading complete after the first event (INITIAL_SESSION)
+      if (!initialEventReceived) {
+        initialEventReceived = true;
+        if (mounted) setIsLoading(false);
       }
     });
 
