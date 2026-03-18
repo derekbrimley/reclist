@@ -1,14 +1,7 @@
 import type { SearchResult, ExtractedMention } from '../types/index';
+import { supabase } from '../lib/supabase';
 
-const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
 const CORS_PROXY = 'https://api.allorigins.win/get?url=';
-
-interface ClaudeResponse {
-  content: Array<{
-    type: 'text';
-    text?: string;
-  }>;
-}
 
 /**
  * Fetches a web page's text content via a CORS proxy, strips HTML,
@@ -55,121 +48,40 @@ export async function fetchPageText(url: string): Promise<string> {
 }
 
 /**
- * Also extract any music service URLs directly from the page HTML.
- */
-export function extractLinksFromHtml(html: string): string[] {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  const links: string[] = [];
-
-  const musicDomains = [
-    'open.spotify.com',
-    'spotify.link',
-    'music.apple.com',
-    'youtube.com',
-    'youtu.be',
-    'bandcamp.com',
-  ];
-
-  doc.querySelectorAll('a[href]').forEach((a) => {
-    const href = a.getAttribute('href');
-    if (href && musicDomains.some((domain) => href.includes(domain))) {
-      links.push(href);
-    }
-  });
-
-  return [...new Set(links)];
-}
-
-/**
- * Uses the Claude API to extract music recommendations from page text.
- * Returns structured data about each mentioned artist/album/song.
+ * Uses a Supabase edge function (backed by Claude) to extract music
+ * recommendations from page text. Returns structured data about each
+ * mentioned artist/album/song.
  */
 export async function extractMusicMentions(
   pageText: string
 ): Promise<Array<{ name: string; artistName: string; type: 'song' | 'album' | 'artist' }>> {
-  if (!ANTHROPIC_API_KEY) {
-    throw new Error('Anthropic API key not configured. Please add VITE_ANTHROPIC_API_KEY to your .env file.');
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    throw new Error('You must be signed in to extract music from pages.');
   }
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error('Supabase URL not configured.');
+  }
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/extract-music`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
+      'Authorization': `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 4096,
-      messages: [
-        {
-          role: 'user',
-          content: `You are a music extraction tool. Given the following text from a web page, identify all music that is being recommended, reviewed, or highlighted.
-
-Return a JSON array of objects, each with these fields:
-- "name": the track or album title
-- "artistName": the artist or band name
-- "type": either "song", "album", or "artist"
-
-Rules:
-- Only include items that are clearly being recommended, reviewed, or listed as notable. Do not include incidental mentions (e.g., "sounds like Radiohead" should not add Radiohead unless Radiohead's music is itself being recommended).
-- When both an album and its individual tracks are mentioned, prefer the album-level entry unless specific tracks are independently highlighted.
-- Deduplicate entries.
-- Return ONLY the JSON array, no other text or markdown formatting.
-
-Page text:
-${pageText}`,
-        },
-      ],
-    }),
+    body: JSON.stringify({ pageText }),
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Claude API error: ${response.status} - ${errorText}`);
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errorData.error || `Failed to extract music: ${response.status}`);
   }
 
-  const data: ClaudeResponse = await response.json();
-  const textContent = data.content.find((block) => block.type === 'text');
-
-  if (!textContent?.text) {
-    throw new Error('No response from Claude');
-  }
-
-  // Try to parse the JSON response
-  try {
-    const parsed = JSON.parse(textContent.text);
-    if (Array.isArray(parsed)) {
-      return parsed.filter(
-        (item) =>
-          typeof item.name === 'string' &&
-          typeof item.artistName === 'string' &&
-          ['song', 'album', 'artist'].includes(item.type)
-      );
-    }
-  } catch {
-    // Fallback: try to extract JSON array from the response
-    const match = textContent.text.match(/\[[\s\S]*\]/);
-    if (match) {
-      try {
-        const parsed = JSON.parse(match[0]);
-        if (Array.isArray(parsed)) {
-          return parsed.filter(
-            (item) =>
-              typeof item.name === 'string' &&
-              typeof item.artistName === 'string' &&
-              ['song', 'album', 'artist'].includes(item.type)
-          );
-        }
-      } catch {
-        // Could not parse
-      }
-    }
-  }
-
-  return [];
+  const data = await response.json();
+  return data.mentions || [];
 }
 
 /**
@@ -193,8 +105,7 @@ export async function resolveToSpotify(
           const searchResults = await searchFn(query);
 
           // Find the best match - prefer matching type
-          const typeMap: Record<string, string> = { song: 'song', album: 'album', artist: 'artist' };
-          const expectedType = typeMap[mention.type];
+          const expectedType = mention.type;
           const bestMatch =
             searchResults.find((r) => r.type === expectedType) || searchResults[0] || undefined;
 

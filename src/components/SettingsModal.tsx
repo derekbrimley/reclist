@@ -72,7 +72,7 @@ export function SettingsModal({
             </button>
             <button
               onClick={() => {
-                if (confirm('Sign out of Apple Music?')) {
+                if (confirm('Sign out of Spotify?')) {
                   onSignOut();
                   onClose();
                 }

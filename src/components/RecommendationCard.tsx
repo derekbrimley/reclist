@@ -115,6 +115,7 @@ export function RecommendationCard({
           )}
           <p className="text-zinc-400 dark:text-zinc-500 text-xs mt-1">
             {typeLabel} • {timeAgo(recommendation.createdAt)}
+            {recommendation.lastOpenedAt && ` • opened ${timeAgo(recommendation.lastOpenedAt)}`}
           </p>
         </div>
       </div>
