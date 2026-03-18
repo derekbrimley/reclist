@@ -17,10 +17,11 @@ import {
   SortControl,
 } from './components';
 import type { SortOption } from './components';
-import type { SearchResult, Playlist, Recommendation } from './types/index';
+import type { SearchResult, Playlist, Recommendation, ExtractedMention } from './types/index';
 import { parseUrl } from './utils/urlParser';
 import { fetchYouTubeMetadata } from './utils/youtube';
 import { generateListeningGuide } from './utils/claude';
+import { fetchPageText, extractMusicMentions, resolveToSpotify } from './utils/extractMusic';
 
 function AppContent() {
   const { state, dispatch } = useApp();
@@ -410,6 +411,42 @@ function AppContent() {
     }
   };
 
+  const handleExtractUrl = async (url: string): Promise<ExtractedMention[]> => {
+    const pageText = await fetchPageText(url);
+    const mentions = await extractMusicMentions(pageText);
+    const resolved = await resolveToSpotify(mentions, search);
+    return resolved;
+  };
+
+  const handleAddBatch = (mentions: ExtractedMention[]) => {
+    const selected = mentions.filter((m) => m.selected);
+    const existingSpotifyIds = new Set(
+      state.recommendations.map((r) => r.spotifyId).filter(Boolean)
+    );
+
+    for (const mention of selected) {
+      if (mention.spotifyMatch) {
+        // Skip duplicates
+        if (existingSpotifyIds.has(mention.spotifyMatch.id)) continue;
+
+        addAndSync({
+          type: mention.spotifyMatch.type,
+          spotifyId: mention.spotifyMatch.id,
+          name: mention.spotifyMatch.name,
+          artistName: mention.spotifyMatch.artistName,
+          artworkUrl: mention.spotifyMatch.artworkUrl,
+          spotifyUrl: mention.spotifyMatch.spotifyUrl,
+        });
+        existingSpotifyIds.add(mention.spotifyMatch.id);
+      } else {
+        addAndSync({
+          type: 'note',
+          noteText: `${mention.name} by ${mention.artistName}`,
+        });
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <Header
@@ -449,6 +486,8 @@ function AppContent() {
         onAddSearch={handleAddSearch}
         onAddNote={handleAddNote}
         onSearch={search}
+        onExtractUrl={handleExtractUrl}
+        onAddBatch={handleAddBatch}
       />
 
       <SettingsModal
