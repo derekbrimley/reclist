@@ -100,23 +100,27 @@ export function useSupabaseAuth(): UseSupabaseAuthReturn {
     let mounted = true;
 
     const init = async () => {
-      const { data: { session: existingSession } } = await supabase.auth.getSession();
+      try {
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      if (existingSession?.user) {
-        setSession(existingSession);
-        setUser(existingSession.user);
+        if (existingSession?.user) {
+          setSession(existingSession);
+          setUser(existingSession.user);
 
-        // On initial load, provider_token is null (only available at sign-in time).
-        // Load from our database instead.
-        const token = await loadSpotifyToken(existingSession.user.id);
-        if (mounted) {
-          setSpotifyAccessToken(token);
+          // On initial load, provider_token is null (only available at sign-in time).
+          // Load from our database instead.
+          const token = await loadSpotifyToken(existingSession.user.id);
+          if (mounted) {
+            setSpotifyAccessToken(token);
+          }
         }
+      } catch (err) {
+        console.error('Auth initialization failed:', err);
+      } finally {
+        if (mounted) setIsLoading(false);
       }
-
-      setIsLoading(false);
     };
 
     init();
