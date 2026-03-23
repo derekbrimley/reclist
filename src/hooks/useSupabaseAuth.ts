@@ -102,8 +102,28 @@ export function useSupabaseAuth(): UseSupabaseAuthReturn {
     let mounted = true;
     let initialEventReceived = false;
 
+    // Safety timeout: if INITIAL_SESSION never fires (e.g. navigator.locks
+    // contention in PWA/service-worker contexts), stop loading anyway so the
+    // app doesn't hang on "Loading..." forever.
+    const safetyTimeout = setTimeout(() => {
+      if (!initialEventReceived && mounted) {
+        console.warn('Auth: INITIAL_SESSION did not fire within 5 s — clearing loading state');
+        initialEventReceived = true;
+        setIsLoading(false);
+      }
+    }, 5000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mounted) return;
+
+      // Mark loading complete immediately on first event, before any async
+      // work. This prevents slow network calls (e.g. loadSpotifyToken) from
+      // keeping the app stuck on the loading screen.
+      if (!initialEventReceived) {
+        initialEventReceived = true;
+        clearTimeout(safetyTimeout);
+        if (mounted) setIsLoading(false);
+      }
 
       setSession(newSession);
       setUser(newSession?.user ?? null);
@@ -128,16 +148,11 @@ export function useSupabaseAuth(): UseSupabaseAuthReturn {
       if (event === 'SIGNED_OUT') {
         setSpotifyAccessToken(null);
       }
-
-      // Mark loading complete after the first event (INITIAL_SESSION)
-      if (!initialEventReceived) {
-        initialEventReceived = true;
-        if (mounted) setIsLoading(false);
-      }
     });
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
     };
   }, [loadSpotifyToken, storeSpotifyTokens]);
